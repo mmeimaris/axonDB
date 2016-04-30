@@ -1,0 +1,1 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub: <http://swat.cse.lehigh.edu/onto/univ-bench.owl#> SELECT DISTINCT ?s1 ?pub ?dept WHERE { ?s1 rdf:type ?studentType . ?s1 ub:undergraduateDegreeFrom ?uguni . ?s1 ub:worksFor ?dept . ?dept rdf:type ?deptType . ?dept ub:subOrganizationOf ?sub . ?pub rdf:type ?pubtype . ?pub ub:publicationAuthor ?s1 . }
