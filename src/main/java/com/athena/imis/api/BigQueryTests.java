@@ -31,6 +31,16 @@ import com.athena.imis.models.BigQueryPattern;
 import com.athena.imis.models.TripleAsInt;
 
 
+/**
+ * This class is helpful in order to initialize an exisiting blinkDB instance and run a series of queries. 
+ * The args[0] param contains the path to the blinkDB instance. 
+ * The args[1] param contains the query set to test (0=LUBM, 1=Reactome, 2=Geonames), you can change this in order 
+ * to define a custom SPARQL query.
+ * 
+ * @author Marios Meimaris
+ *
+ */
+
 public class BigQueryTests {
 
 	
@@ -70,14 +80,6 @@ public class BigQueryTests {
 	
 	public static void main(String[] args) {
 		
-		//DB db = DBMaker.newFileDB(new File("C:/temp/tempor.bin"))
-		//args[0] = "C:/temp/temp" ;
-		//DB db = DBMaker.newFileDB(new File("C:/temp/temp"))
-		LUBMQueries lll = new LUBMQueries();
-		for(String qqq : lll.getQueries(2)){
-			System.out.println(qqq);
-		}
-		if(true) return;
 		
 		DB db = DBMaker.newFileDB(new File(args[0]))
 		//DB db = DBMaker.newFileDB(new File("C:/temp/reactome_rose.bin"))
@@ -182,11 +184,8 @@ public class BigQueryTests {
  				.makeOrGet();
 		
 		reversePropertiesSet = new HashMap<Integer, String>();
-		/*for(String prr : propertiesSet.keySet()){
-			reversePropertiesSet.put(propertiesSet.get(prr), prr);
-		}*/
 		
-		//APO EDW ARXIZEI TO PANHGYRI
+	
 		
 		HashMap<BigExtendedCharacteristicSet, HashSet<Vector<BigExtendedCharacteristicSet>>> ecsVectorMap = new HashMap<BigExtendedCharacteristicSet, HashSet<Vector<BigExtendedCharacteristicSet>>>();
  		
@@ -248,17 +247,18 @@ public class BigQueryTests {
  		ArrayList<Long> times;
  		
  			
- 		
+ 		//args[1] contains the query set to test (0=LUBM, 1=Reactome, 2=Geonames)
  		for(String qs : lubm.getQueries(Integer.parseInt(args[1]))){
  		
  			
  			try{
  			queryString = qs;
- 			//queryString = lubm.q12;
- 			//queryString = lubm.reactomePrefixes + " " + lubm.r6;
+ 			
  			times = new ArrayList<Long>(); 
  			
-		 		System.out.println(queryString);
+ 			//Prints the next query string
+		 		
+ 				System.out.println(queryString);
 		 		Query q=QueryFactory.create(queryString);
 		 		//List<Var> projectVariables = q.getProjectVars();
 		 		long tstart = System.nanoTime();

@@ -7,12 +7,14 @@ import gnu.trove.set.hash.TLongHashSet;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -24,17 +26,30 @@ import org.apache.jena.riot.lang.PipedRDFIterator;
 import org.apache.jena.riot.lang.PipedRDFStream;
 import org.apache.jena.riot.lang.PipedTriplesStream;
 import org.apache.jena.tdb.TDBFactory;
+import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
+import org.mapdb.Fun;
+import org.mapdb.Pump;
 import org.mapdb.Serializer;
 
 import xerial.larray.LLongArray;
 import xerial.larray.japi.LArrayJ;
 
-import com.athena.imis.models.CharacteristicSet;
-import com.athena.imis.models.ExtendedCharacteristicSet;
+import com.athena.imis.models.BigCharacteristicSet;
+import com.athena.imis.models.BigExtendedCharacteristicSet;
+import com.sun.org.apache.xml.internal.utils.StringComparable;
 
-public class MainTests {
+/**
+ * This class is responsible for loading RDF files in blinkDB. It has been tested with NT and RDF/XML serializations.
+ * Use this class as is in order to load a file into blinkDB.
+ * Two parameters are required, args[0] contains the file for the database you want to create, args[1] the 
+ * name to give the new database (as a mapDB instance) and args[2] the path to the RDF file.
+ * 
+ * @author Marios Meimaris
+ *
+ */
+public class BigLoader {
 	
 		
 		public static Map<String, Integer> propertiesSet = new THashMap<String, Integer>();
@@ -47,53 +62,61 @@ public class MainTests {
 			
 			
 		
-			Dataset ds = TDBFactory.createDataset(args[0]);	   
+			//Dataset ds = TDBFactory.createDataset(args[0]);	   
 			
-			Model model = ds.getDefaultModel();
-			DB db = DBMaker.newFileDB(new File(args[1]))
+			//Model model = ds.getDefaultModel();
+			
+			DB db = DBMaker.newFileDB(new File(args[0]))
 					.transactionDisable()
 	 				.fileChannelEnable() 			
 	 				.fileMmapEnable()
+	 				.asyncWriteFlushDelay(5000)
 	 				.cacheSize(1000000000) 				
 	 				.closeOnJvmShutdown()
 	 				.make();
 			
-			intMapDB = db.hashMapCreate("intMap")
+			/*intMapDB = db.hashMapCreate("intMap")
 	 				.keySerializer(Serializer.STRING)
 	 				.valueSerializer(Serializer.INTEGER)
-	 				.makeOrGet();
+	 				.makeOrGet();*/
 			
+			 
 			/*reverseIntMap = db.hashMapCreate("reverseIntMap")
 	 				.keySerializer(Serializer.INTEGER)
 	 				.valueSerializer(Serializer.STRING)
 	 				.makeOrGet();*/
-			Map<String, Integer> prefixMap = new HashMap<String, Integer>();
+			/*Map<String, Integer> prefixMap = new HashMap<String, Integer>();
 			Map<String, Integer> prefixMapDB = db.hashMapCreate("prefixMap")
 	 				.keySerializer(Serializer.STRING)
 	 				.valueSerializer(Serializer.INTEGER)
-	 				.makeOrGet();
+	 				.makeOrGet();*/
 			
-			Map<Integer, Integer> dbECSMap = db.hashMapCreate("temp")
+			Map<Integer, Integer> dbECSMap = db.hashMapCreate(args[1])
 	 				.keySerializer(Serializer.INTEGER)
 	 				.valueSerializer(Serializer.INTEGER)
 	 				.makeOrGet();
 			dbECSMap.clear();
 			int next = 0;
-			LLongArray l = LArrayJ.newLLongArray(model.size());
+			//LLongArray l = LArrayJ.newLLongArray(model.size());
+								
+			//final int[][] array ;//= new int[(int)model.size()][4];
+			final ArrayList<int[]> array = new ArrayList<int[]>();
 			
-			final int[][] array = new int[(int)model.size()][4];
-			for(int i = 0; i < array.length; i++)
-				array[i][3] = -1;
+			/*for(int i = 0; i < array.size(); i++){
+				int[] ar = new int[4];
+				ar[3] = -1;
+				array.add(i, ar);
+			}*/
 			int propIndex = 0, nextInd = 0;
 			long start = System.nanoTime();
-			 PipedRDFIterator<Triple> iter = new PipedRDFIterator<Triple>(1024*1440*10);
-		        final PipedRDFStream<Triple> inputStream = new PipedTriplesStream(iter);
+			PipedRDFIterator<Triple> iter = new PipedRDFIterator<Triple>(1024*1440*10);
+		    final PipedRDFStream<Triple> inputStream = new PipedTriplesStream(iter);
 
 		        // PipedRDFStream and PipedRDFIterator need to be on different threads
-		        ExecutorService executor = Executors.newSingleThreadExecutor();
+		    ExecutorService executor = Executors.newSingleThreadExecutor();
 
 		        // Create a runnable for our parser thread
-		        Runnable parser = new Runnable() {
+		    Runnable parser = new Runnable() {
 
 		            @Override
 		            public void run() {
@@ -101,24 +124,34 @@ public class MainTests {
 		                RDFDataMgr.parse(inputStream, args[2]);
 		            	//RDFDataMgr.parse(inputStream, "C:/temp/tdb_export.rdf");
 		            }
-		        };
+		     };
 
 		        // Start the parser on another thread
-		        executor.submit(parser);
+		    executor.submit(parser);
 
 		        // We will consume the input on the main thread here
 
 		        // We can now iterate over data as it is parsed, parsing only runs as
 		        // far ahead of our consumption as the buffer size allows
-		        Triple triple ;
-		        String s, p, o;
-		        //Map<String, Integer> prefixMap = new HashMap<String, Integer>();
-		        int prefixIndex = 0, lastIndex ;
-		        String prefix = "";
-		        while (iter.hasNext()) {
-		            triple = iter.next();
-		            s = triple.getSubject().toString();
-		            /*if(s.lastIndexOf('#') >= 0){
+		    Triple triple ;
+		    String s, p, o;
+		    
+		    //Map<String, Integer> prefixMap = new HashMap<String, Integer>();
+		    
+		    int prefixIndex = 0, lastIndex ;
+		    
+		    String prefix = "";
+		    
+		    int triplesParsed = 0;
+		    
+		    while (iter.hasNext()) {
+		    
+		    	triple = iter.next();
+		        triplesParsed++;
+		    	s = triple.getSubject().toString();
+		        
+		    	//uncomment for more prefix compression
+		    	/*if(s.lastIndexOf('#') >= 0){
 		            	lastIndex = s.lastIndexOf('#');
 		            	prefix = s.substring(0, lastIndex+1);
 		            	if(!prefixMap.containsKey(prefix))
@@ -132,8 +165,10 @@ public class MainTests {
 		            }
 		            s = "_"+prefixMap.get(prefix)+":"+s.substring(lastIndex+1);*/
 		            //System.out.println(s);
-		            p = triple.getPredicate().toString();
-		            o = triple.getObject().toString();
+		        
+		    	p = triple.getPredicate().toString();
+		        
+		    	o = triple.getObject().toString();
 		            /*if(triple.getObject().isURI()){
 		            	if(o.lastIndexOf('#') >= 0){
 			            	lastIndex = o.lastIndexOf('#');
@@ -149,107 +184,73 @@ public class MainTests {
 			            }
 			            o = "_"+prefixMap.get(prefix)+":"+o.substring(lastIndex+1);
 		            }*/
-		            if(!propertiesSet.containsKey(p)){		
-						//revPropertiesSet.put(propIndex, p);
-			    		propertiesSet.put(p, propIndex++);	    	
-			    		//intMap.put(triple.getPredicate().toString(), propertiesSet.get(triple.getPredicate().toString()));
-			    	}
-					if(!intMap.containsKey(s)){
-		    			//reverseIntMap.put(nextInd, s);			    	
-		    			intMap.put(s, nextInd++);
-		    		}
-					if(!intMap.containsKey(o)){
-		    			//reverseIntMap.put(nextInd, o);			    	
-		    			intMap.put(o, nextInd++);
-		    		}
-		            
-					array[next][0] = intMap.get(s);//spLong;
-					array[next][1] = propertiesSet.get(p);//spLong;
-					array[next][2] = intMap.get(o);//spLong;
-					//array[next++][3] = -1;
-					next++;
-		        }
-		        executor.shutdown();
-		        iter.close();
-		       long end = System.nanoTime();
-				
-				System.out.println("piped: " + (end-start));
-				for(String st : intMap.keySet()){
-					intMapDB.put(st, intMap.get(st));
-				}
-				for(String pr : prefixMap.keySet()){
-					prefixMapDB.put(pr, prefixMap.get(pr));
-				}
-		   /*    if(true) return;
-				
-				
-				StmtIterator it = model.listStatements();
-				NodeIterator oit = model.listObjects();
-				Node ob ;
-			 start = System.nanoTime();
-			while(oit.hasNext()){
-				ob = oit.next().asNode();
-				if(!intMap.containsKey(ob.toString())){
-	    			reverseIntMap.put(nextInd, ob.toString());
-	    			intMap.put(ob.toString(), nextInd++);
-	    		}
-			}
-			end = System.nanoTime();
-			
-			System.out.println("objects: " + (end-start));
-			Triple triple ;
-			
-			
-			
-			//List<Long> array = new ArrayList<Long>((int)model.size());			
-			
-			//int e0 = l.apply(0L);  //  Get l[0L]
-
-			// release 		
-			int next = 0;
-			
-			int[][] array = new int[(int)model.size()][4];
-			//int[] intarr = new int[4];
-			while(it.hasNext()){
-				
-				triple = it.next().asTriple();
-				if(!propertiesSet.containsKey(triple.getPredicate().toString())){		
-					revPropertiesSet.put(propIndex, triple.getPredicate().toString());
-		    		propertiesSet.put(triple.getPredicate().toString(), propIndex++);	    	
-		    		//intMap.put(triple.getPredicate().toString(), propertiesSet.get(triple.getPredicate().toString()));
+		        
+		    	if(!propertiesSet.containsKey(p)){							
+			    
+		    		propertiesSet.put(p, propIndex++);	    	
+			    	
 		    	}
-				if(!intMap.containsKey(triple.getSubject().toString())){
-	    			reverseIntMap.put(nextInd, triple.getSubject().toString());			    	
-	    			intMap.put(triple.getSubject().toString(), nextInd++);
-	    		}
-				if(!intMap.containsKey(triple.getObject().toString())){
-	    			reverseIntMap.put(nextInd, triple.getObject().toString());			    	
-	    			intMap.put(triple.getObject().toString(), nextInd++);
-	    		}
-				//long tripleLong = ((long)propertiesSet.get(triple.getPredicate().toString()) << 54 | (long)intMap.get(triple.getSubject().toString()) << 27 | (long)intMap.get(triple.getObject().toString()));
 				
-				long tripleLong = ((long)intMap.get(triple.getSubject().toString()) << 37 | 
-						(long)propertiesSet.get(triple.getPredicate().toString()) << 27 | 
-						(long)intMap.get(triple.getObject().toString()));
-				long spLong = ((long)intMap.get(triple.getSubject().toString()) << 10 | 
-						(long)propertiesSet.get(triple.getPredicate().toString())) & 0x1FFFFFFFFEl;
-				//array[next++] = tripleLong;
+		    	if(!intMap.containsKey(s)){		    				    
+		    	
+		    		intMap.put(s, nextInd++);
+		    		
+		    	}
 				
-				array[next][0] = intMap.get(triple.getSubject().toString());//spLong;
-				array[next][1] = propertiesSet.get(triple.getPredicate().toString());//spLong;
-				array[next][2] = intMap.get(triple.getObject().toString());//spLong;
-				array[next][3] = -1;
+		    	if(!intMap.containsKey(o)){		   			   
+		    	
+		    		if(triple.getObject().isURI())
+		    			intMap.put(o, nextInd++);
+		    		else
+		    			intMap.put(o, Integer.MAX_VALUE);
+		    		
+		    	}
+		            
+		    	int[] ar = new int[4];
+				ar[0] = intMap.get(s);//spLong;
+				ar[1] = propertiesSet.get(p);//spLong;
+				ar[2] = intMap.get(o);//spLong;			
+				ar[3] = -1;
+				array.add(next, ar);
 				next++;
-				
+		    }
+		    executor.shutdown();
+		    iter.close();
+		    long end = System.nanoTime();
+			System.out.println("triples parsed:" + triplesParsed);
+			System.out.println("piped: " + (end-start));
+			List<String> keys = new ArrayList<String>(intMap.keySet());
+			Collections.sort(keys);
+			Collections.reverse(keys);
+			//keys.addAll(intMap.keySet());
+			Iterator<String> source = keys.iterator();
+			Fun.Function1<Integer,String> valueExtractor = new Fun.Function1<Integer, String>() {
+		            @Override public Integer run(String s) {
+		                return intMap.get(s);
+		            }
+		        };
+		    intMapDB = db.createTreeMap("intMap")
+		                .pumpSource(source,valueExtractor)
+		                //.pumpPresort(100000) // for presorting data we could also use this method
+		                .keySerializer(Serializer.STRING)
+		                .valueSerializer(Serializer.INTEGER)
+		                .make();
+			for(String st : intMap.keySet()){
+				intMapDB.put(st, intMap.get(st));
 			}
-			it.close();
-			end = System.nanoTime();*/
+			for(String st : intMap.keySet()){
+				intMapDB.put(st, intMap.get(st));
+			}
+			/*for(String pr : prefixMap.keySet()){
+				prefixMapDB.put(pr, prefixMap.get(pr));
+			}*/
+		 
 			
 			System.out.println("loading: " + (end-start));
-			System.out.println("size: " + array.length);
+			System.out.println("size: " + array.size());
 			start = System.nanoTime();
 			//Arrays.sort(array);
-			Arrays.sort(array, new Comparator<int[]>() {
+			Collections.sort(array, new Comparator<int[]>() {
 			    public int compare(int[] s1, int[] s2) {
 			        if (s1[0] > s2[0])
 			            return 1;    // tells Arrays.sort() that s1 comes after s2
@@ -262,17 +263,14 @@ public class MainTests {
 			});
 			end = System.nanoTime();
 			System.out.println("sorting: " + (end-start));
-			/*start = System.nanoTime();		
-			for(int i = 0; i < array.length; i++){
-				l.update((long)i, array[i]);
-			}
-			end = System.nanoTime();
-			System.out.println("copying: " + (end-start));*/
+			
 			int previousSubject = Integer.MIN_VALUE;
+			
 			TIntHashSet properties = new TIntHashSet();
-			HashMap<CharacteristicSet, Integer> ucs = new HashMap<>();
-			//HashMap<Integer, CharacteristicSet> rucs = new HashMap<>();
-			Map<Integer, CharacteristicSet> rucs = db.hashMapCreate("rucsMap")
+			
+			HashMap<BigCharacteristicSet, Integer> ucs = new HashMap<>();
+		
+			Map<Integer, BigCharacteristicSet> rucs = db.hashMapCreate("rucsMap")
 	 				.keySerializer(Serializer.INTEGER)
 	 				//.valueSerializer(Serializer.)
 	 				.makeOrGet();
@@ -282,24 +280,24 @@ public class MainTests {
 			/*for(int i = 0; i < l.size(); i++){
 				long t = l.apply((long)i);*/
 			int previousStart = 0;
-			CharacteristicSet cs = null;
+			BigCharacteristicSet cs = null;
 			int[] t ;
 			int subject ;
 			int prop ;
-			for(int i = 0; i < array.length; i++){
-				t = array[i];
+			for(int i = 0; i < array.size(); i++){
+				t = array.get(i);
 				subject = t[0];
 				prop = t[1];
 				
 				if(i > 0 && previousSubject != subject){
 										
-					cs = new CharacteristicSet(properties, true);					
+					cs = new BigCharacteristicSet(properties, true);					
 					if(!ucs.containsKey(cs)){
 						
 						dbECSMap.put(previousSubject, csIndex);
 						rucs.put(csIndex, cs);
 						for(int j = previousStart; j < i; j++)
-							array[j][3] = csIndex;
+							array.get(j)[3] = csIndex;
 						ucs.put(cs, csIndex++);
 						
 						
@@ -308,7 +306,7 @@ public class MainTests {
 						dbECSMap.put(previousSubject, ucs.get(cs));
 						//array[i-1][3] = ucs.get(cs);
 						for(int j = previousStart; j < i; j++)
-							array[j][3] = ucs.get(cs);
+							array.get(j)[3] = ucs.get(cs);
 					}
 					previousStart = i;
 					properties.clear();
@@ -319,24 +317,24 @@ public class MainTests {
 			}
 			/*for(Integer subject : sp.keySet()){
 				HashSet<Integer> props = sp.get(subject);
-				CharacteristicSet cs = new CharacteristicSet(props, true);
+				BigCharacteristicSet cs = new BigCharacteristicSet(props, true);
 				ucs.add(cs);
 			}*/
 			
 			if(!properties.isEmpty()){
-				cs = new CharacteristicSet(properties, true);
+				cs = new BigCharacteristicSet(properties, true);
 				if(!ucs.containsKey(cs)){
 					//array[array.length-1][3] = csIndex; 
-					for(int j = previousStart; j < array.length; j++)
-						array[j][3] = csIndex;
+					for(int j = previousStart; j < array.size(); j++)
+						array.get(j)[3] = csIndex;
 					dbECSMap.put(previousSubject, csIndex);
 					rucs.put(csIndex, cs);
 					ucs.put(cs, csIndex);
 					
 				}
 				else{
-					for(int j = previousStart; j < array.length; j++)
-						array[j][3] = ucs.get(cs);
+					for(int j = previousStart; j < array.size(); j++)
+						array.get(j)[3] = ucs.get(cs);
 					//array[array.length-1][3] = ucs.get(cs);
 					dbECSMap.put(previousSubject, ucs.get(cs));
 				}
@@ -345,7 +343,7 @@ public class MainTests {
 			end = System.nanoTime();
 			System.out.println("ucs time: " + (end-start));
 			start = System.nanoTime();
-			Arrays.sort(array, new Comparator<int[]>() {
+			Collections.sort(array, new Comparator<int[]>() {
 			    public int compare(int[] s1, int[] s2) {
 			        if (s1[3] > s2[3])
 			            return 1;    // s1 comes after s2
@@ -362,12 +360,12 @@ public class MainTests {
 	 				.valueSerializer(Serializer.LONG_ARRAY)
 	 				.makeOrGet();
 			csMap.clear();
-			csIndex = array[0][3];
+			csIndex = array.get(0)[3];
 			neg = 0;
 			
-			for(int i = 0; i < array.length; i++){
+			for(int i = 0; i < array.size(); i++){
 				
-				t = array[i];
+				t = array.get(i);
 				
 				if(csIndex != t[3]){
 					//System.out.println(csIndex);
@@ -388,7 +386,7 @@ public class MainTests {
 
 			long[] result = tripleList.stream().mapToLong(k -> k).toArray();
 			//Arrays.sort(result);
-			csMap.put(csIndex, result);					
+			csMap.put(csIndex, result);
 			
 			end = System.nanoTime();
 			System.out.println("ucs2 time: " + (end-start));
@@ -396,32 +394,32 @@ public class MainTests {
 			int tot = 0;
 
 
-			Map<ExtendedCharacteristicSet, long[]> ecsMap = new THashMap<ExtendedCharacteristicSet, long[]>();
+			Map<BigExtendedCharacteristicSet, long[]> ecsMap = new THashMap<BigExtendedCharacteristicSet, long[]>();
 			
 			start = System.nanoTime();
 			//HashMap<Integer, ArrayList<Long>> hash = new HashMap<Integer, ArrayList<Long>>();
 			Map<Integer, ArrayList<Long>> hash = new THashMap<>();
 			List<Long> resList = null ;
 			ArrayList<Long> def = null;
-			ExtendedCharacteristicSet ecs = null;
+			BigExtendedCharacteristicSet ecs = null;
 			
 			Map<Integer, long[]> ecsLongArrayMap = db.hashMapCreate("ecsLongArrays")
 	 				.keySerializer(Serializer.INTEGER)
 	 				.valueSerializer(Serializer.LONG_ARRAY)
 	 				.makeOrGet();
 			
-			Map<Integer, ExtendedCharacteristicSet> ruecs = db.hashMapCreate("ruecsMap")
+			Map<Integer, BigExtendedCharacteristicSet> ruecs = db.hashMapCreate("ruecsMap")
 	 				.keySerializer(Serializer.INTEGER)	 			
 	 				.makeOrGet();
 			
-			Map<ExtendedCharacteristicSet, Integer> uecs = db.hashMapCreate("uecsMap")
+			Map<BigExtendedCharacteristicSet, Integer> uecs = db.hashMapCreate("uecsMap")
 	 				.valueSerializer(Serializer.INTEGER)	 				
 	 				.makeOrGet();
 			
 			int ecsIndex = 0;
-			HashMap<CharacteristicSet, HashSet<ExtendedCharacteristicSet>> sCSToECS = new HashMap<CharacteristicSet, HashSet<ExtendedCharacteristicSet>>();
-			HashMap<CharacteristicSet, HashSet<ExtendedCharacteristicSet>> oCSToECS = new HashMap<CharacteristicSet, HashSet<ExtendedCharacteristicSet>>();
-			HashSet<ExtendedCharacteristicSet> d;
+			HashMap<BigCharacteristicSet, HashSet<BigExtendedCharacteristicSet>> sCSToECS = new HashMap<BigCharacteristicSet, HashSet<BigExtendedCharacteristicSet>>();
+			HashMap<BigCharacteristicSet, HashSet<BigExtendedCharacteristicSet>> oCSToECS = new HashMap<BigCharacteristicSet, HashSet<BigExtendedCharacteristicSet>>();
+			HashSet<BigExtendedCharacteristicSet> d;
 			for(Integer cs1 : csMap.keySet()){
 				
 				hash.clear();
@@ -439,11 +437,11 @@ public class MainTests {
 					resList = join(hash, csMap.get(cs2));
 					if(resList.isEmpty()) continue;
 					
-					ecs = new ExtendedCharacteristicSet(rucs.get(cs1), rucs.get(cs2));
-					d = sCSToECS.getOrDefault(rucs.get(cs1), new HashSet<ExtendedCharacteristicSet>());
+					ecs = new BigExtendedCharacteristicSet(rucs.get(cs1), rucs.get(cs2));
+					d = sCSToECS.getOrDefault(rucs.get(cs1), new HashSet<BigExtendedCharacteristicSet>());
 					d.add(ecs);
 					sCSToECS.put(rucs.get(cs1), d);
-					d = oCSToECS.getOrDefault(rucs.get(cs2), new HashSet<ExtendedCharacteristicSet>());
+					d = oCSToECS.getOrDefault(rucs.get(cs2), new HashSet<BigExtendedCharacteristicSet>());
 					d.add(ecs);
 					oCSToECS.put(rucs.get(cs2), d);
 					result = resList.stream().mapToLong(k -> k).toArray();
@@ -464,14 +462,14 @@ public class MainTests {
 					}
 				}
 				if(!resList.isEmpty()){
-					ecs = new ExtendedCharacteristicSet(rucs.get(cs1), null);
+					ecs = new BigExtendedCharacteristicSet(rucs.get(cs1), null);
 					result = resList.stream().mapToLong(k -> k).toArray();
 					//ecsMap.put(ecs, result);
 					Arrays.sort(result);
 					ecsLongArrayMap.put(ecsIndex, result);
 					uecs.put(ecs, ecsIndex);
 					ruecs.put(ecsIndex++, ecs);
-					d = sCSToECS.getOrDefault(rucs.get(cs1), new HashSet<ExtendedCharacteristicSet>());
+					d = sCSToECS.getOrDefault(rucs.get(cs1), new HashSet<BigExtendedCharacteristicSet>());
 					d.add(ecs);
 					sCSToECS.put(rucs.get(cs1), d);			
 					//tot += result.length;
@@ -483,17 +481,17 @@ public class MainTests {
 			end = System.nanoTime();
 			System.out.println("ecs new: " + (end-start));
 			
-			System.out.println("ecsMap: " + ecsMap.size());
+			System.out.println("ecsMap: " + ecsLongArrayMap.size());
 			System.out.println("orphans: " + tot);
 			System.out.println("filter: " + filter.size());
-			Map<ExtendedCharacteristicSet, HashSet<ExtendedCharacteristicSet>> ecsLinks = db.hashMapCreate("ecsLinks")
+			Map<BigExtendedCharacteristicSet, HashSet<BigExtendedCharacteristicSet>> ecsLinks = db.hashMapCreate("ecsLinks")
 	 				//.keySerializer(Serializer.INTEGER)	 			
 	 				.makeOrGet(); 
-			for(CharacteristicSet cs1 : oCSToECS.keySet()){
+			for(BigCharacteristicSet cs1 : oCSToECS.keySet()){
  	 			if(sCSToECS.containsKey(cs1)){
- 	 				for(ExtendedCharacteristicSet e1 : oCSToECS.get(cs1)){
- 	 					for(ExtendedCharacteristicSet e2 : sCSToECS.get(cs1)){
- 	 						d = ecsLinks.getOrDefault(e1, new HashSet<ExtendedCharacteristicSet>());
+ 	 				for(BigExtendedCharacteristicSet e1 : oCSToECS.get(cs1)){
+ 	 					for(BigExtendedCharacteristicSet e2 : sCSToECS.get(cs1)){
+ 	 						d = ecsLinks.getOrDefault(e1, new HashSet<BigExtendedCharacteristicSet>());
  	 						d.add(e2);
  	 						ecsLinks.put(e1, d); 						
  	 					}
@@ -502,7 +500,7 @@ public class MainTests {
  	 			}
  	 		}
 			tot = 0;
-			for(ExtendedCharacteristicSet e : ecsLinks.keySet()){
+			for(BigExtendedCharacteristicSet e : ecsLinks.keySet()){
 				tot += ecsLinks.get(e).size();
 			}
 			System.out.println("total ecs links: " + tot);
@@ -554,7 +552,7 @@ public class MainTests {
 				csMap.put(ci, result);
 			}
 			
-			l.free();
+			//l.free();
 			db.close();
 			
 
