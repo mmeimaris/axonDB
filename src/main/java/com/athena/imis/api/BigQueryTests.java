@@ -243,7 +243,7 @@ public class BigQueryTests {
  		System.out.println("total patterns: " + ecsVectors.size());
 		
 		String queryString;
- 		LUBMQueries lubm = new LUBMQueries();
+ 		Queries lubm = new Queries();
  		ArrayList<Long> times;
  		
  			
