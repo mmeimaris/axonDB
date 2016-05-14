@@ -3,7 +3,7 @@ The source code and queries for blinkDB
 
 **Note: this this the source code used for the experiments presented in our paper that is currently under the submission and reviewing process of ISWC 2016. 
 
-**Our implementation is going to be renamed in the future, as not to be confused with the bounded error SQL query engine BlinkDB by Aggrawal et al (http://blinkdb.org/).
+**Our implementation is going to be renamed in the future, as not to be confused with the existing bounded error SQL query engine BlinkDB.
 
 The package **/*/api contains two key classes for loading and querying into blinkDB. Specifically, BigLoader.java is used 
 for RDF loading, and currently has been tested with .nt and .rdf/xml serializations. Quads are not supported at the moment.
