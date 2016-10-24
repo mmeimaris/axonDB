@@ -553,6 +553,306 @@ public class BigLoader {
 			}
 			
 			//l.free();
+			List<BigExtendedCharacteristicSet> sortECSList = new ArrayList<BigExtendedCharacteristicSet>(uecs.keySet());
+			HashMap<BigExtendedCharacteristicSet, List<BigExtendedCharacteristicSet>> outEdges = new HashMap<BigExtendedCharacteristicSet, List<BigExtendedCharacteristicSet>>();
+			HashMap<BigExtendedCharacteristicSet, List<BigExtendedCharacteristicSet>> inEdges = new HashMap<BigExtendedCharacteristicSet, List<BigExtendedCharacteristicSet>>();
+			Collections.sort(sortECSList, new Comparator<BigExtendedCharacteristicSet>() {
+			    public int compare(BigExtendedCharacteristicSet s1, BigExtendedCharacteristicSet s2) {
+			        if (s1.getLongRep().cardinality() > s2.getLongRep().cardinality())
+			            return 1;    // s1 comes after s2
+			        else if (s1.getLongRep().cardinality() < s2.getLongRep().cardinality())
+			            return -1;   // s1 comes before s2
+			        else {			          
+			            return 0;
+			        }
+			    }
+			});
+			//build ECS hierarchy graph
+			for(BigExtendedCharacteristicSet outer : sortECSList){
+				//System.out.println("parent: " + outer.getLongRep().toString());
+				outEdges.put(outer, new ArrayList<BigExtendedCharacteristicSet>());
+				for(BigExtendedCharacteristicSet inner : sortECSList){
+					if(outer == inner)
+						continue;
+					if(outer.getLongRep().cardinality() >= inner.getLongRep().cardinality())
+						continue;
+					boolean isBreak = false;
+					if(isSubset(outer.getLongRep(), inner.getLongRep())){
+												
+						for(BigExtendedCharacteristicSet childCheck : outEdges.get(outer)){
+							if(isSubset(childCheck.getLongRep(), inner.getLongRep())){
+								isBreak = true;
+							}
+						}
+						if(isBreak) continue;
+						outEdges.get(outer).add(inner);
+						if(inEdges.containsKey(inner))	
+							inEdges.get(inner).add(outer);
+						else{
+							ArrayList<BigExtendedCharacteristicSet> inlist = new ArrayList<BigExtendedCharacteristicSet>();
+							inlist.add(outer);
+							inEdges.put(inner, inlist);
+						}
+						//System.out.println("child: " + inner.getLongRep().toString() + " " + inner);						
+						
+					}
+				}
+			}
+			
+			/*for(BigExtendedCharacteristicSet root : outEdges.keySet()){
+				
+				//get each root and reach the leaves
+				if(inEdges.containsKey(root)) 
+					continue;
+				//System.out.println("root: " + root.getLongRep().toString()+ " " + root);
+				
+			}
+			if(false)*/
+			LinkedHashSet<ArrayList<Integer>> paths = new LinkedHashSet<ArrayList<Integer>>();
+			//HashMap<Integer, Integer> ordering = new HashMap<Integer, Integer>();
+			Map<Integer, Integer> ordering = db.hashMapCreate("ordering")
+	 				.keySerializer(Serializer.INTEGER)	
+	 				.valueSerializer(Serializer.INTEGER)
+	 				.makeOrGet();
+			
+			for(BigExtendedCharacteristicSet root : outEdges.keySet()){
+				
+				//get each root and reach the leaves
+				if(inEdges.containsKey(root)) 
+					continue;
+				Integer rootInd = uecs.get(root);
+				HashSet<Integer> visited = new HashSet<Integer>();
+				Stack<ArrayList<Integer>> stack = new Stack<ArrayList<Integer>>();
+				ArrayList<Integer> pathSoFar = new ArrayList<Integer>();
+				pathSoFar.add(rootInd);
+				stack.push(pathSoFar);
+				//System.out.println("New root: " + uecs.get(root));
+				while(!stack.empty()){
+					
+					ArrayList<Integer> thisPath = stack.pop();
+					//System.out.println("this path: " + thisPath);
+					if(visited.contains(thisPath.get(thisPath.size()-1))){
+						//System.out.println("visited...");
+						continue;
+					}
+					visited.add(thisPath.get(thisPath.size()-1));					
+					
+					if(outEdges.get(ruecs.get(thisPath.get(thisPath.size()-1))).isEmpty()){
+						paths.add(thisPath);
+						//System.out.println("no children...");
+						//System.out.println(thisPath);
+						continue;
+					}
+					
+					for(BigExtendedCharacteristicSet child : outEdges.get(ruecs.get(thisPath.get(thisPath.size()-1)))){
+						//System.out.println("iterating over: " + uecs.get(child));
+						ArrayList<Integer> nextPath = (ArrayList<Integer>) thisPath.clone();
+						nextPath.add(uecs.get(child));
+						//System.out.println("next node: " + uecs.get(child));
+						stack.push(nextPath);
+					}
+					
+				}
+				
+				
+			}
+						
+			
+			int nextOrdering = 0;
+			for(ArrayList<Integer> nextPath : paths){
+				//System.out.println("next path: " + nextPath);
+				for(Integer e : nextPath){
+					if(!ordering.containsKey(e)){
+						ordering.put(e, nextOrdering++);
+					}
+					//System.out.println(ruecs.get(e).getLongRep().toString());
+					//long[] triples = ecsLongArrayMap.get(e);
+					
+				}
+			}
+			
+			Comparator<Integer> comparator = new Comparator<Integer>() {
+			    public int compare(Integer s1, Integer s2) {
+			    	if(!ordering.containsKey(s1) || !ordering.containsKey(s2)) return 0;
+			        if (ordering.get(s1) > ordering.get(s2))
+			            return 1;    // tells Arrays.sort() that s1 comes after s2
+			        else if (ordering.get(s1) < ordering.get(s2))
+			            return -1;   // tells Arrays.sort() that s1 comes before s2
+			        else {			          
+			            return 0;
+			        }
+			    }
+			};
+			
+			Comparator<Object[]> comparator2 = new Comparator<Object[]>() {
+			    public int compare(Object[] s1, Object[] s2) {
+			    	if (!ordering.containsKey((int)s1[0]) || !ordering.containsKey((int)s2[0]))
+			    		return 0;
+			        if (ordering.get((int)s1[0]) > ordering.get((int)s2[0]))
+			            return 1;    // tells Arrays.sort() that s1 comes after s2
+			        else if (ordering.get((int)s1[0]) < ordering.get((int)s2[0]))
+			            return -1;   // tells Arrays.sort() that s1 comes before s2
+			        else {			          
+			            return 0;
+			        }
+			    }
+			};			
+						BTreeMap<Integer, long[]> btree = db.createTreeMap("towns") 
+					.keySerializer(Serializer.INTEGER) 
+					.valueSerializer(Serializer.LONG_ARRAY)
+					.nodeSize(16)
+					.valuesOutsideNodesEnable()
+					.comparator(comparator)
+	 				.makeOrGet();
+			
+//			BTreeKeySerializer keySerializer = new BTreeKeySerializer.ArrayKeySerializer(
+//	                new Comparator[]{Fun.COMPARATOR, Fun.COMPARATOR},
+//	                new Serializer[]{Serializer.INTEGER, Serializer.LONG}
+//	        ) ;
+			
+//			ConcurrentNavigableMap<Object[], Long> map3 = db.createTreeMap("towns2") 
+//					.keySerializer(keySerializer)
+//					.valueSerializer(Serializer.LONG)
+//					//.nodeSize(6)
+//					//.valuesOutsideNodesEnable()
+//					//.comparator(comparator2)					
+//	 				.makeOrGet();
+						
+			
+			/*int uindex = 0;
+			for(ArrayList<Integer> path : paths){
+				ArrayList<Long> triplesInPath = new ArrayList<Long>();
+				//System.out.println("next path: ");
+				for(Integer e : path){
+					//System.out.println(ruecs.get(e).getLongRep().toString());
+					long[] triples = ecsLongArrayMap.get(e);
+										
+				}
+				
+			}*/
+			String nextName = "";			
+			int trc = 0;
+			for(Integer e : ecsLongArrayMap.keySet()){
+				if(!btree.containsKey(e)){
+					//System.out.println("not contains " + e);
+					btree.put(e, ecsLongArrayMap.get(e));
+					//System.out.println(btree.get(e).length);
+					trc+=btree.get(e).length;
+				}
+//				nextName = e.toString();
+//				Set<Long> btreeset = db.createTreeSet(nextName) 					
+//						.serializer(Serializer.LONG)
+//						//.nodeSize(6)
+//						//.valuesOutsideNodesEnable()
+//						//.comparator(comparator)					
+//		 				.makeOrGet();				
+//				for(long tr : ecsLongArrayMap.get(e)){
+//					map3.put(new Object[]{e, tr}, 0l);
+//					btreeset.add(tr);
+//				}
+				
+			}
+			//System.out.println("size of btree: " + btree.keySet().size());
+			System.out.println("trc: " + trc);
+			//System.out.println("size of btreeset: " + btreeset.size());
+//			System.out.println("size of map3: " + map3.keySet().size());
+			long avg1 = 0;
+			int count1 = 0;
+			for(int i = 0; i < 10; i++){				
+				
+				for(ArrayList<Integer> path : paths){
+					//System.out.println("path " + path);
+					start = System.nanoTime();
+					for(Integer nextEcs : path){
+						long[] nextTripleSet = ecsLongArrayMap.get(nextEcs);
+						//System.out.println(nextTripleSet.length);
+						for(long tr : nextTripleSet){
+							long tt = tr+1;
+							count1++;
+						}
+					}
+					end = System.nanoTime();
+					//System.out.println("1. elapsed time: " + (end-start));
+					avg1 += (end-start);
+					//break;
+				}				
+				
+			}
+			
+			long avg2 = 0;
+			int count2 = 0;
+			for(int i = 0; i < 10; i++){
+								
+				for(ArrayList<Integer> path : paths){
+					//System.out.println("path " + path);
+					start = System.nanoTime();
+					for(Integer nextEcs : path){
+						long[] nextTripleSet = btree.get(nextEcs);
+						for(long tr : nextTripleSet){
+							long tt = tr + 1;
+							count2++;
+						}
+						//System.out.println(nextTripleSet.length);
+						
+					}
+					end = System.nanoTime();
+					//System.out.println("2. elapsed time: " + (end-start));
+					avg2 += (end-start);
+					//break;
+				}
+				
+				
+			}
+			System.out.println("avg1: " + (avg1/10/ecsLongArrayMap.keySet().size()));
+			//System.out.println("avg2: " + (avg2/10/btree.keySet().size()));
+			System.out.println("count1: " + count1);
+			System.out.println("count2: " + count2);
+			for(int i = 0; i < 10; i++){				
+				
+				Set<Long> nextMap ;
+				for(ArrayList<Integer> path : paths){
+					System.out.println("path " + path);
+					start = System.nanoTime();
+					for(Integer nextEcs : path){
+						//Iterator it = db.getTreeSet(""+nextEcs.toString()).iterator();
+						nextMap = db.getTreeSet(""+nextEcs.toString());
+						for(long l : nextMap){
+							long nextt = (long) l;
+						}
+						//long[] nextTripleSet = ecsLongArrayMap.get(nextEcs);
+						//System.out.println(nextTripleSet.length);
+					}
+					end = System.nanoTime();
+					System.out.println("3. elapsed time: " + (end-start));
+					//break;
+				}				
+				
+			}
+			
+			for(int i = 0; i < 10; i++){
+				
+				for(ArrayList<Integer> path : paths){
+					System.out.println("path " + path);
+					start = System.nanoTime();
+					for(Integer nextEcs : path){
+						//long[] nextTripleSet = map3.get(nextEcs);
+						int count = 0;
+						Map<Object[], Long> subMap = map3.subMap(new Object[]{nextEcs}, new Object[]{nextEcs, null});
+						
+						for(long l : subMap.values()){
+							long tt = l;
+						}
+							
+						//System.out.println(count);
+						
+					}
+					end = System.nanoTime();
+					System.out.println("4. elapsed time: " + (end-start));
+					//break;
+				}
+				
+				
+			}
 			db.close();
 			
 

@@ -23,7 +23,7 @@ public class BigECSQuery {
 	
 	HashMap<BigExtendedCharacteristicSet, HashSet<BigExtendedCharacteristicSet>> ecsLinks ;
 	HashMap<BigExtendedCharacteristicSet, HashSet<BigExtendedCharacteristicSet>> ecsVerticalLinks ;
-	public HashSet<BigExtendedCharacteristicSet> ecsSet ;
+	public static HashSet<BigExtendedCharacteristicSet> ecsSet ;
 	
 	static HashSet<BigECSTree> visited = new LinkedHashSet<BigECSTree>();
 	static HashMap<Node, HashMap<Integer, Integer>> subjectBindsMap;
