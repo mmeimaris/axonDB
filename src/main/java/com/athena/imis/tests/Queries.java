@@ -3,13 +3,15 @@ package com.athena.imis.tests;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LUBMQueries {
+public class Queries {
 
 	public static List<String> queries = new ArrayList<String>();
 	
 	public static List<String> reactome_queries = new ArrayList<String>();
 	
 	public static List<String> geonames_queries = new ArrayList<String>();
+	
+	public static List<String> sample_queries = new ArrayList<String>();
 	
 	{
 		//queries.add(q1_ext);
@@ -49,13 +51,18 @@ public class LUBMQueries {
 		geonames_queries.add(geonamesPrefixes + " " + g4);
 		geonames_queries.add(geonamesPrefixes + " " + g5);
 		geonames_queries.add(geonamesPrefixes + " " + g6);
+		
+		sample_queries.add(prefix + " SELECT ?x ?y WHERE {?x rdf:type ub:UndergraduateStudent . ?x rdf:friendOf ?y. ?y rdf:type ub:UndergraduateStudent .}");		
 	}
 	public List<String> getQueries(int dataset){
 		if(dataset == 1)
-			return LUBMQueries.reactome_queries;
+			return Queries.reactome_queries;
 		else if(dataset == 2)
-			return LUBMQueries.geonames_queries;
-		return LUBMQueries.queries;
+			return Queries.geonames_queries;
+		else if(dataset == 4){
+			return Queries.sample_queries;
+		}
+		return Queries.queries;
 	}
 	public static String prefix = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> "
 			+ "PREFIX ub: <http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";

@@ -1,44 +1,39 @@
 package com.athena.imis.tests;
 
-import gnu.trove.map.hash.THashMap;
-import gnu.trove.set.hash.TIntHashSet;
-import gnu.trove.set.hash.TLongHashSet;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.jena.graph.Triple;
-import org.apache.jena.query.Dataset;
-import org.apache.jena.rdf.model.Model;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.lang.PipedRDFIterator;
 import org.apache.jena.riot.lang.PipedRDFStream;
 import org.apache.jena.riot.lang.PipedTriplesStream;
-import org.apache.jena.tdb.TDBFactory;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Fun;
-import org.mapdb.Pump;
 import org.mapdb.Serializer;
-
-import xerial.larray.LLongArray;
-import xerial.larray.japi.LArrayJ;
 
 import com.athena.imis.models.BigCharacteristicSet;
 import com.athena.imis.models.BigExtendedCharacteristicSet;
-import com.sun.org.apache.xml.internal.utils.StringComparable;
+
+import gnu.trove.map.hash.THashMap;
+import gnu.trove.set.hash.TIntHashSet;
+import gnu.trove.set.hash.TLongHashSet;
 
 /**
  * This class is responsible for loading RDF files in blinkDB. It has been tested with NT and RDF/XML serializations.
@@ -637,7 +632,7 @@ public class BigLoader {
 					}
 					visited.add(thisPath.get(thisPath.size()-1));					
 					
-					if(outEdges.get(ruecs.get(thisPath.get(thisPath.size()-1))).isEmpty()){
+					if(outEdges.get(ruecs.get(thisPath.get(thisPath.size()-1))).isEmpty()){ //!ruecs.containsKey(thisPath.get(thisPath.size()-1)) || 
 						paths.add(thisPath);
 						//System.out.println("no children...");
 						//System.out.println(thisPath);
@@ -829,30 +824,28 @@ public class BigLoader {
 				
 			}
 			
-			for(int i = 0; i < 10; i++){
-				
-				for(ArrayList<Integer> path : paths){
-					System.out.println("path " + path);
-					start = System.nanoTime();
-					for(Integer nextEcs : path){
-						//long[] nextTripleSet = map3.get(nextEcs);
-						int count = 0;
-						Map<Object[], Long> subMap = map3.subMap(new Object[]{nextEcs}, new Object[]{nextEcs, null});
-						
-						for(long l : subMap.values()){
-							long tt = l;
-						}
-							
-						//System.out.println(count);
-						
-					}
-					end = System.nanoTime();
-					System.out.println("4. elapsed time: " + (end-start));
-					//break;
-				}
-				
-				
-			}
+//			for(int i = 0; i < 10; i++){
+//				
+//				for(ArrayList<Integer> path : paths){
+//					System.out.println("path " + path);
+//					start = System.nanoTime();
+//					for(Integer nextEcs : path){
+//						//long[] nextTripleSet = map3.get(nextEcs);
+//						int count = 0;
+//						Map<Object[], Long> subMap = map3.subMap(new Object[]{nextEcs}, new Object[]{nextEcs, null});
+//						
+//						for(long l : subMap.values()){
+//							long tt = l;
+//						}
+//						
+//					}
+//					end = System.nanoTime();
+//					System.out.println("4. elapsed time: " + (end-start));
+//					//break;
+//				}
+//				
+//				
+//			}
 			db.close();
 			
 
@@ -952,5 +945,11 @@ public class BigLoader {
 
 		        return -1;
 	    }
+		
+		public static boolean isSubset(BitSet a, BitSet b) {
+			BitSet c = (BitSet) a.clone();
+			b.and(a);
+			return (b.equals(c)); 
+		}
 		
 }

@@ -2,7 +2,6 @@ package com.athena.imis.tests;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,7 +26,7 @@ import com.athena.imis.models.ECSTuple;
 import com.athena.imis.models.ExtendedCharacteristicSet;
 import com.athena.imis.models.QueryPattern;
 import com.athena.imis.models.TripleAsInt;
-import com.athena.imis.tests.InMemoryTests6.ECSTupleComparator;
+import com.athena.imis.tests.BigQueryTests.ECSTupleComparator;
 
 public class QueryTests {
 
@@ -229,12 +228,12 @@ public class QueryTests {
  		System.out.println("total patterns: " + ecsVectors.size());
 		
 		String queryString;
- 		LUBMQueries lubm = new LUBMQueries();
+ 		Queries lubm = new Queries();
  		ArrayList<Long> times;
  		
  			
  		
- 		for(String qs : lubm.getQueries()){
+ 		for(String qs : lubm.getQueries(1)){
  		
  			try{
  			queryString = qs;

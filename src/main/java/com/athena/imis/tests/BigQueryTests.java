@@ -2,7 +2,6 @@ package com.athena.imis.tests;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.Comparator;
@@ -17,7 +16,6 @@ import java.util.Vector;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryFactory;
-import org.apache.jena.sparql.core.Var;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
@@ -28,6 +26,7 @@ import com.athena.imis.models.BigECSQuery;
 import com.athena.imis.models.BigECSTuple;
 import com.athena.imis.models.BigExtendedCharacteristicSet;
 import com.athena.imis.models.BigQueryPattern;
+import com.athena.imis.models.QueryPattern;
 import com.athena.imis.models.TripleAsInt;
 
 
@@ -80,17 +79,17 @@ public class BigQueryTests {
 	
 	public static void main(String[] args) {
 		
-		
+		System.out.println("Loading database file.");
 		DB db = DBMaker.newFileDB(new File(args[0]))
 		//DB db = DBMaker.newFileDB(new File("C:/temp/reactome_rose.bin"))
 		//DB db = DBMaker.newFileDB(new File("C:/temp/temp"))
 				.transactionDisable()
  				.fileChannelEnable() 			
  				.fileMmapEnable()
- 				.cacheSize(1000000000) 				
+ 				.cacheSize(1000000) 				
  				.closeOnJvmShutdown()
  				.make();
-		
+		System.out.println("Loading ecs map.");
 		ecsLongArrayMap = db.hashMapCreate("ecsLongArrays")
  				.keySerializer(Serializer.INTEGER)
  				.valueSerializer(Serializer.LONG_ARRAY)
@@ -100,26 +99,32 @@ public class BigQueryTests {
  				.keySerializer(Serializer.STRING)
  				.valueSerializer(Serializer.INTEGER)
  				.makeOrGet();
+		System.out.println("Loading prefix map.");
 		
 		Map<Integer, BigExtendedCharacteristicSet> ruecs = db.hashMapCreate("ruecsMap")
  				.keySerializer(Serializer.INTEGER)
  				//.valueSerializer(Serializer.)
  				.makeOrGet();
+		System.out.println("Loading ruecs map.");
 		
 		intMap = db.treeMapCreate("intMap")
  				.keySerializer(Serializer.STRING)
  				.valueSerializer(Serializer.INTEGER)
  				.makeOrGet();
+//		System.out.println("intMap: " + intMap.toString());
+		System.out.println("Loading int map.");
 		
 		reverseIntMap = db.hashMapCreate("reverseIntMap")
  				.keySerializer(Serializer.INTEGER)
  				.valueSerializer(Serializer.STRING)
  				.makeOrGet();
+		System.out.println("Loading reverse int map.");
 		
 		csMap = db.hashMapCreate("csMap")
  				.keySerializer(Serializer.INTEGER)
  				.valueSerializer(Serializer.LONG_ARRAY)
  				.makeOrGet();
+		System.out.println("Loading cs map.");
 		/*int totalInCS = 0;
 		long one = 0 ;
 		for(Integer c : csMap.keySet()){
@@ -136,6 +141,7 @@ public class BigQueryTests {
  				.keySerializer(Serializer.INTEGER)
  				//.valueSerializer(Serializer.)
  				.makeOrGet();
+		System.out.println("Loading rucs map.");
 		
 		ucs = new HashMap<BigCharacteristicSet, Integer>();
 		for(Integer ci : rucs.keySet()){
@@ -146,9 +152,13 @@ public class BigQueryTests {
  				.valueSerializer(Serializer.INTEGER)
  				//.valueSerializer(Serializer.)
  				.makeOrGet();
+		System.out.println("Loading uecs map.");
+		
 		Map<BigExtendedCharacteristicSet, HashSet<BigExtendedCharacteristicSet>> ecsLinks = db.hashMapCreate("ecsLinks")
  				//.keySerializer(Serializer.INTEGER)	 			
  				.makeOrGet(); 
+		System.out.println("Loading ecs links map.");
+		
 		int tot = 0;
 		for(Integer ecs : ruecs.keySet()){
 			tot += ecsLongArrayMap.get(ecs).length;
@@ -166,6 +176,7 @@ public class BigQueryTests {
  				.keySerializer(Serializer.INTEGER)	
  				.valueSerializer(Serializer.INT_ARRAY)
  				.makeOrGet();  
+		System.out.println("Loading property index map.");
 		
 		propIndexMap = new HashMap<Integer, HashMap<Integer,Integer>>();
 		for(Integer e : properIndexMap.keySet()){
@@ -182,9 +193,11 @@ public class BigQueryTests {
  				.keySerializer(Serializer.STRING)	
  				.valueSerializer(Serializer.INTEGER)
  				.makeOrGet();
+		System.out.println("Loading properties set.");
 		
 		reversePropertiesSet = new HashMap<Integer, String>();
 		
+		System.out.println(propertiesSet.toString());
 	
 		
 		HashMap<BigExtendedCharacteristicSet, HashSet<Vector<BigExtendedCharacteristicSet>>> ecsVectorMap = new HashMap<BigExtendedCharacteristicSet, HashSet<Vector<BigExtendedCharacteristicSet>>>();
@@ -193,7 +206,7 @@ public class BigQueryTests {
  		
  		for(BigExtendedCharacteristicSet ecs : ecsLinks.keySet()){
  			
- 			if(true) break;
+// 			if(true) break;
  			
  			HashSet<BigExtendedCharacteristicSet> visited = new HashSet<BigExtendedCharacteristicSet>();
  			
@@ -676,7 +689,7 @@ public class BigQueryTests {
 			 			for(Integer what : res_vectors_new.keySet()){
 			 				results.addAll(res_vectors_new.get(what));
 			 			}*/
-			 			System.out.println("hello " + results.size());
+			 			System.out.println("result size: " + results.size());
 			 			/*for(Vector<Integer> v : results){
 			 				System.out.println(v.toString());
 			 			}*/
@@ -1307,6 +1320,26 @@ public class BigQueryTests {
 	    {
 	   	
 	   		 return (new Integer(c1.card)).compareTo(c2.card);
+	    }
+	}
+	
+	static class ECSTupleComparator implements Comparator<QueryPattern>
+	{
+	    public int compare(QueryPattern c1, QueryPattern c2)
+	    {
+	   	 if(c1.queryPattern.size() == c2.queryPattern.size()){
+	   		 if(c1.boundVars > 0 && c2.boundVars > 0)
+	   			 return (new Integer(c1.boundVars).compareTo(c2.boundVars));
+	   		 else if(c1.boundVars > 0 )
+	   			 return -1;
+	   		 else if(c2.boundVars > 0 )
+	   			 return +1;
+	   		 else 
+	   			 return 0;
+	   	 }
+	   	 
+	   	 else
+	   		 return -1*(new Integer(c1.queryPattern.size())).compareTo(c2.queryPattern.size());
 	    }
 	}
 	

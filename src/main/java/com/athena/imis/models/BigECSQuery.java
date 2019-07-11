@@ -17,6 +17,8 @@ import org.apache.jena.sparql.syntax.ElementPathBlock;
 
 import com.athena.imis.tests.BigQueryTests;
 
+import scala.collection.immutable.IntMap;
+
 public class BigECSQuery {
 
 	Query query;
@@ -124,7 +126,7 @@ public class BigECSQuery {
 			
 		}
 		
-		System.out.println(subjectBindsMap.toString());
+//		System.out.println(subjectBindsMap.toString());
 
 		ecsSet = new HashSet<BigExtendedCharacteristicSet>();
 		
